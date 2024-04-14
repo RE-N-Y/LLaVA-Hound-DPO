@@ -18,5 +18,3 @@ response = inference_model.generate(
     temperature=0,
 )
 print(response)
-
-# prompt format
