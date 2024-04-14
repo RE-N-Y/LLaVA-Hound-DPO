@@ -1,113 +1,27 @@
-# <h1>LLaVA-Hound:<br> Video Large Multimodal Models from Large-scale Training</h1>
+# LLaVA
 
-Official implementation for paper: **Direct Preference Optimization of Video Large Multimodal Models from Language Model Reward**
+## Prompt format
 
-## Release
-- [4/3] [DPO 17k data + training script](https://github.com/RifleZhang/LLaVA-Hound-DPO/blob/main/llava_hound_dpo/dpo_scripts/README.md), [pre-training video 900k + image 650k](https://github.com/RifleZhang/LLaVA-Hound-DPO/blob/main/llava_hound_dpo/sft_scripts/README.md)
-- [4/2] Project page set up, [paper preprint](https://arxiv.org/abs/2404.01258), Test data pipeline
-
-# Dataset and Model
-In [Huggingface Repo](https://huggingface.co/ShareGPTVideo), we release
-
-**Datasets**:
-1. Test data: [ShareGPTVideo/test_video_and_instruction](https://huggingface.co/datasets/ShareGPTVideo/test_video_and_instruction/tree/main)
-   - original videos are released at [ShareGPTVideo/test_raw_video_data](https://huggingface.co/datasets/ShareGPTVideo/test_raw_video_data) in case of need.
-2. Train data [ShareGPTVideo/train_video_and_instruction](https://huggingface.co/datasets/ShareGPTVideo/train_video_and_instruction/blob/main/README.md):
-   - 900k detailed caption  [caption](n/pretrain/video_caption_pretrain.jsonl),
-   - 900k frames data: [300k](https://huggingface.co/datasets/ShareGPTVideo/train_video_and_instruction/tree/main/train_300k) for finetuning, plus the rest [600k](https://huggingface.co/datasets/ShareGPTVideo/train_video_and_instruction/tree/main/train_600k), in total 900k for pre-training.
-
-
-**Models**:
-1. Pre-trained ckpt on large scale video (and image) caption: [ShareGPTVideo/LLaVA-Hound-Pretrain](ShareGPTVideo/LLaVA-Hound-Pretrain)
-2. Fine-tuned ckpt on video (and image) instruction: [ShareGPTVideo/LLaVA-Hound-SFT](https://huggingface.co/ShareGPTVideo/LLaVA-Hound-SFT)
-3. DPO ckpt with 17k video preference data: [ShareGPTVideo/LLaVA-Hound-DPO](https://huggingface.co/ShareGPTVideo/LLaVA-Hound-DPO)
-4. Additionaly, [ShareGPTVideo/LLaVA-Hound-SFT-Image_only](https://huggingface.co/ShareGPTVideo/LLaVA-Hound-SFT-Image_only/settings)
-# setup:
-```bash
-# setup requirements
-source setup/setup_env.sh
-
-# need to fill in required path and API tokens at
-set_path.sh
+```
+A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <video>
+What is the evident theme in the video? ASSISTANT:
 ```
 
-# inference example
-```bash
-cd llava_hound_dpo
-sudo apt-get install ffmpeg
+## Input IDs 
+```
+input_ids = tokenizer_X_token(prompt, tokenizer, X_TOKEN_INDEX['video'], return_tensors='pt')
+
+1, 319, 13563, 1546, 263, 12758, 1404, 322, 385, 23116, 21082, 20255, 29889, 450, 20255, 4076, 8444, 29892, 13173, 29892, 322, 1248, 568, 6089, 304, 278, 1404, 29915, 29879, 5155, 29889, 3148, 1001, 29901, 29871, -201, 29871, 13, 5618, 338, 278, 13602, 10929, 297, 278, 4863, 29973, 319, 1799, 9047, 13566, 2990
 ```
 
-```python
-from llava.model.builder import load_pretrained_model
-from llava.mm_utils import get_model_name_from_path
-from inference.inference_utils import ModelInference, decode2frame
+## Video frames
 
-video_path = "example/sample_msrvtt.mp4"
-
-model_path = "ShareGPTVideo/LLaVA-Hound-DPO"
-model_name = get_model_name_from_path(model_path)
-tokenizer, model, processor, context_len = load_pretrained_model(model_path, model_base = None, model_name=model_name, cache_dir=os.environ['CACHE_DIR'])
-inference_model = ModelInference(model=model, tokenizer=tokenizer, processor=processor, context_len=context_len)
-
-# our pipeline
-frame_dir, _ = os.path.splitext(video_path)
-decode2frame(video_path, frame_dir, verbose=True)
-question="What is the evident theme in the video?"
-response = inference_model.generate(
-    question=question,
-    modal_path=frame_dir,
-    temperature=0,
-)
-print(response)
-
-# using decord 
-response = inference_model.generate(
-    question=question,
-    modal_path=video_path,
-    temperature=0,
-    video_decode_backend="decord",
-)
-print(response)
 ```
-# Testing with one-line command 
-```bash
-# setup data
-source setup/setup_test_data.sh
+modal_path = "frames/..."
+modal_tensor = video_processor(modal_path, return_tensors='pt', video_decode_backend=video_decode_backend)
 
-# Eval for official (a subset of 5k qa)
-bash test/pipeline/outdomain_official_test_pipeline.sh \
-$model_output_name \
-$model_name
-
-# Eval for our in-domain
-bash test/pipeline/indomain_test_pipeline.sh \
-$model_output_name \
-$model_name
-
-# Eval for our out-of-domain 
-bash test/pipeline/outdomain_test_pipeline.sh \
-$model_output_name \
-$model_name
-```
-Exampe of official testing with dpo model
-```bash
-bash test/pipeline/outdomain_official_test_pipeline.sh \
-videollava_dpo \
-ShareGPTVideo/LLaVA-Hound-DPO
-```
-More details including discussion, other SOTA model testing, customized model testing, refer to [test readme](https://github.com/RifleZhang/LLaVA-Hound-DPO/blob/main/llava_hound_dpo/test/README.md)
-
-# Training
-DPO training refer to [DPO data setup and training](llava_hound_dpo/dpo_scripts/README.md)
-
-# Reference
-```
-@misc{zhang2024direct,
-      title={Direct Preference Optimization of Video Large Multimodal Models from Language Model Reward}, 
-      author={Ruohong Zhang and Liangke Gui and Zhiqing Sun and Yihao Feng and Keyang Xu and Yuanhan Zhang and Di Fu and Chunyuan Li and Alexander Hauptmann and Yonatan Bisk and Yiming Yang},
-      year={2024},
-      eprint={2404.01258},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV}
-}
+[
+    [tensor(3, 8, 224, 224), tensor(3, 8, 224, 224), ...], 
+    ['image',                'image'               , ...]
+]
 ```
